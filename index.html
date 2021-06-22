@@ -14,8 +14,30 @@ body {
 </style>
 <script>let process = {env: false};</script>
 <script src="perfect-freehand-bundle.js"></script>
+<script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+<script src="serverless_rooms.js"></script>
 <div> <svg id="drawContainer" width="100%" height="100%"></svg></div>
 <script>
+
+function uuidv4() {
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+		  return v.toString(16);
+		});
+}
+
+let currentUrl = new URL(window.location);
+
+let roomId = uuidv4();
+if (currentUrl.searchParams.has("room")) {
+	roomId = currentUrl.searchParams.get("room");
+}
+else {
+	currentUrl.searchParams.set("room", roomId);
+	window.history.replaceState("", document.title, currentUrl.href);
+}
+
+let roomConnection = serverlessRooms.joinRoom(roomId);
 
 function getSvgPathFromStroke(stroke) {
   if (!stroke.length) return ""
@@ -34,14 +56,11 @@ function getSvgPathFromStroke(stroke) {
 
 let points = [];
 let drawContainer = document.getElementById("drawContainer");
-function setPoints(p) {
+let pathEl = null;
+function setPoints(p, element) {
 	points = p;
-
-	let pathEl = document.createElementNS('http://www.w3.org/2000/svg','path');;
-
-	drawContainer.appendChild(pathEl);
-	pathEl.setAttribute("stroke", "#000");
-	pathEl.setAttribute("d", getSvgPathFromStroke(
+	element.setAttribute("stroke", "#000");
+	element.setAttribute("d", getSvgPathFromStroke(
         getStroke(points, {
           size: 4,
           thinning: 0.5,
@@ -49,20 +68,38 @@ function setPoints(p) {
           streamline: 0.5
         })
       ));
-
 }
 
+roomConnection.on("message", (message) => {
+	try {
+		let receivedPoints = JSON.parse(message);
+
+		let newPath = document.createElementNS('http://www.w3.org/2000/svg','path');;
+		drawContainer.appendChild(newPath);
+
+		setPoints(receivedPoints, newPath);
+	}
+	catch(e) {
+		alert(e);
+	}
+})
 
 drawContainer.onpointerdown = (e) => {
 	e.preventDefault()
 	points = [[e.pageX, e.pageY]];
+	pathEl = document.createElementNS('http://www.w3.org/2000/svg','path');;
+	drawContainer.appendChild(pathEl);
 }
 
 drawContainer.onpointermove = (e) => {
 	if (e.buttons === 1) {
 	  e.preventDefault()
-	  setPoints([...points, [e.pageX, e.pageY]])
+	  setPoints([...points, [e.pageX, e.pageY]], pathEl)
 	}
+}
+
+drawContainer.onpointerup = (e) => {
+	roomConnection.message(JSON.stringify(points));
 }
 
 </script>
