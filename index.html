@@ -1,0 +1,99 @@
+<html>
+<style>
+body {
+	margin:  0;
+	overflow: hidden;
+}
+#drawContainer {
+	width:  100vw;
+	height:  100vh;
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+</style>
+<script>let process = {env: false};</script>
+<script src="perfect-freehand-bundle.js"></script>
+<div id="drawContainer"></div>
+<script>
+
+function getSvgPathFromStroke(stroke) {
+  if (!stroke.length) return ""
+
+  const d = stroke.reduce(
+    (acc, [x0, y0], i, arr) => {
+      const [x1, y1] = arr[(i + 1) % arr.length]
+      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2)
+      return acc
+    },
+    ["M", ...stroke[0], "Q"]
+  )
+	console.log(d);
+	console.log(stroke);
+  d.push("Z")
+  return d.join(" ")
+}
+
+let points = [];
+let drawContainer = document.getElementById("drawContainer");
+function setPoints(p) {
+	points = p;
+
+	drawContainer.innerHTML = "";
+	let svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');;
+	let pathEl = document.createElementNS('http://www.w3.org/2000/svg','path');;
+	svgEl.appendChild(pathEl);
+	drawContainer.appendChild(svgEl);
+	svgEl.setAttribute("width", "100%");
+	svgEl.setAttribute("height", "100%");
+	pathEl.setAttribute("stroke", "#000");
+	pathEl.setAttribute("d", getSvgPathFromStroke(
+        getStroke(points, {
+          size: 24,
+          thinning: 0.5,
+          smoothing: 0.5,
+          streamline: 0.5
+        })
+      ));
+
+}
+
+
+drawContainer.onpointerdown = (e) => {
+	e.preventDefault()
+	points = [[e.pageX, e.pageY]];
+}
+
+drawContainer.onpointermove = (e) => {
+	if (e.buttons === 1) {
+	  e.preventDefault()
+	  console.log('setpoints"');
+	  console.log(points);
+	  setPoints([...points, [e.pageX, e.pageY]])
+	}
+}
+
+
+// return (
+// `
+// <svg
+//   onPointerDown=`{handlePointerDown}`
+//   onPointerMove=`{handlePointerMove}`
+//   style={{ touchAction: "none" }}
+// >
+//   {points && (
+//     <path
+//       d={getSvgPathFromStroke(
+//         getStroke(points, {
+//           size: 24,
+//           thinning: 0.5,
+//           smoothing: 0.5,
+//           streamline: 0.5
+//         })
+//       )}
+//     />
+//   )}
+// </svg>
+// `
+</script>
+</html>
